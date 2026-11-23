@@ -1739,11 +1739,19 @@ function buildReport(v){
     if(!window.jspdf){say(false,'The PDF tool didn’t load. <span>Check your internet connection and reload the page.</span>');return;}
     const name=$('#rpName').value.trim(),per=$('#rpPer').value.trim();let blob;
     try{blob=makePDF(reportBlocks(name,per));}catch(e){say(false,'Something went wrong building the PDF. <span>'+esc(e.message)+'</span>');return;}
-    let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;}catch(e){dl=null;}
-    if(!dl){say(false,'Downloading isn’t available in this view. <span>Open the page from its claude.ai link and try again.</span>');return;}
     const slug=name.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase();
-    try{await dl.save({filename:`characteristics-of-life-report${slug?'-'+slug:''}.pdf`,data:blob});say(true,'Saved! <span>Turn in this PDF file.</span>');}
-    catch(e){const c=e&&e.code;say(false,c==='declined'?'Download canceled. <span>Press the button again when you’re ready.</span>':c==='rate_limited'?'A save window is already open. <span>Finish that one, then try again.</span>':'The file couldn’t be saved here. <span>Reload the page and try again.</span>');}};
+    const fname=`characteristics-of-life-report${slug?'-'+slug:''}.pdf`;
+    /* Standard browser download: works when the page is opened from a file, a school website, Google Sites, Canvas, etc. */
+    const browserSave=()=>{const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fname;a.rel='noopener';a.style.display='none';document.body.appendChild(a);a.click();
+      setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},60000);
+      return url;};
+    /* Only used if the page happens to be hosted on claude.ai, where plain downloads are blocked. */
+    let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;}catch(e){dl=null;}
+    if(dl){try{await dl.save({filename:fname,data:blob});say(true,'Saved! <span>Upload this PDF to Canvas.</span>');return;}
+      catch(e){if(e&&e.code==='declined'){say(false,'Download canceled. <span>Press the button again when you’re ready.</span>');return;}}}
+    try{const url=browserSave();
+      say(true,`Your PDF is downloading as <b>${esc(fname)}</b>. <span>Look in your Downloads folder, then upload it to Canvas. Nothing downloaded? <a href="${url}" target="_blank" rel="noopener">Open the PDF</a> and save it from there.</span>`);}
+    catch(e){say(false,'The file couldn’t be saved here. <span>Try opening this page in its own browser tab, then press the button again.</span>');}};
 }
 
 /* =========================================================
